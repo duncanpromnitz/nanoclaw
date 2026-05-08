@@ -172,10 +172,11 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
       try {
         const stat = fs.statSync(sessionPath);
         if (stat.size > 200 * 1024) {
-          log(`Session transcript ${Math.round(stat.size / 1024)}KB — archiving and resetting before compaction`);
-          // Rename rather than delete — the SDK auto-resumes any .jsonl it finds,
-          // so clearing the continuation pointer alone isn't enough.
-          try { fs.renameSync(sessionPath, `${sessionPath}.archived`); } catch { /* best-effort */ }
+          log(`Session transcript ${Math.round(stat.size / 1024)}KB — deleting and resetting before compaction`);
+          // Delete rather than rename — the SDK deterministically regenerates the
+          // same UUID for a given cwd, so a renamed .jsonl.archived file left
+          // alongside still poisons the next session's conversation history.
+          try { fs.unlinkSync(sessionPath); } catch { /* best-effort */ }
           continuation = undefined;
           clearContinuation(config.providerName);
         }
