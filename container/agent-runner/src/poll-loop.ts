@@ -70,6 +70,7 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
     // Periodic heartbeat so we know the loop is alive
     if (pollCount % 30 === 0) {
       log(`Poll heartbeat (${pollCount} iterations, ${messages.length} pending)`);
+      touchHeartbeat();
     }
 
     if (messages.length === 0) {
