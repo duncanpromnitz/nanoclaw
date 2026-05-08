@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { findByName, getAllDestinations, type DestinationEntry } from './destinations.js';
 import { getPendingMessages, markProcessing, markCompleted, type MessageInRow } from './db/messages-in.js';
 import { writeMessageOut } from './db/messages-out.js';
@@ -160,6 +161,23 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
     const prompt = formatMessagesWithCommands(keep, config.provider.supportsNativeSlashCommands);
 
     log(`Processing ${keep.length} message(s), kinds: ${[...new Set(keep.map((m) => m.kind))].join(',')}`);
+
+    // Auto-reset session if transcript has grown too large. Claude Code compacts
+    // at ~120k tokens; pre-empting that avoids the compaction summary which can
+    // drop mid-session work context. A fresh start reloads CLAUDE.local.md
+    // cleanly instead. 200KB ≈ ~50k tokens of transcript — well before compaction.
+    if (continuation) {
+      const projectId = config.cwd.replace(/\//g, '-');
+      const sessionPath = `/home/node/.claude/projects/${projectId}/${continuation}.jsonl`;
+      try {
+        const stat = fs.statSync(sessionPath);
+        if (stat.size > 200 * 1024) {
+          log(`Session transcript ${Math.round(stat.size / 1024)}KB — resetting before compaction`);
+          continuation = undefined;
+          clearContinuation(config.providerName);
+        }
+      } catch { /* file missing or unreadable — proceed normally */ }
+    }
 
     const query = config.provider.query({
       prompt,
