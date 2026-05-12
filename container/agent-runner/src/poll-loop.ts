@@ -290,6 +290,11 @@ async function processQuery(
   let endedForCommand = false;
   const pollHandle = setInterval(() => {
     if (done || pollInFlight || endedForCommand) return;
+    // Keep heartbeat alive while stream is open waiting for follow-up messages.
+    // After a result event the query stays open but no events fire, so the
+    // event-loop heartbeat at line ~370 doesn't run. Without this the host
+    // kills the container 30 min after the last response even when idle-polling.
+    touchHeartbeat();
     pollInFlight = true;
 
     void (async () => {
