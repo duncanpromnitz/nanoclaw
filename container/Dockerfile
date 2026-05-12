@@ -104,6 +104,13 @@ RUN --mount=type=cache,target=/root/.cache/pnpm \
 RUN --mount=type=cache,target=/root/.cache/pnpm \
     pnpm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
+# pnpm 11 uses a content-addressed immutable store, so claude-code's postinstall
+# cannot overwrite bin/claude.exe with the native binary (EACCES on the store).
+# Manually symlink the native binary to the expected location.
+RUN NATIVE=$(find /pnpm/store -name 'claude' -path '*/claude-code-linux-arm64/*/claude' ! -path '*/.bin/*' | head -1) && \
+    ln -sf "$NATIVE" /pnpm/bin/claude && \
+    /pnpm/bin/claude --version
+
 # ---- Entrypoint --------------------------------------------------------------
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
